@@ -54,7 +54,7 @@ Crucial: This project uses httplib::SSLClient for communication with Google's AP
 - MySQL Server: A running MySQL server. Also preferable to some workbench like DBeaver or MySQL Workbench.
 
 
-# URL Shortener Service SETUP(C++ with vcpkg)
+## URL Shortener Service SETUP(C++ with vcpkg)
 
 This guide provides instructions for configuring, building, and running the `url_shortner` executable after cloning the repository. The project uses CMake and relies on **vcpkg** to manage external dependencies (MySQL Connector, httplib, Sentry).
 
@@ -144,6 +144,15 @@ set -a && source ../.env && set +a && \
 ./url_shortner
 ```
 
+try below if above did not work:
+```bash
+mkdir build && cd build && \
+cmake .. && \
+cmake --build . -- -j && \
+set -a && source ../.env && set +a && \
+./url_shortner
+```
+
 After running, the server should start and print something like below:
 
 ```
@@ -157,9 +166,6 @@ Listening on http://0.0.0.0:9080
 * Ensure MySQL is running locally with the credentials specified in `.env`.
 * Modify the `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` with your own OAuth credentials.
 
-
-Got it 👍 — here’s a **clean, standalone Markdown section** for
-`## API Usage and Testing (cURL)` — fully formatted with syntax highlighting, tables, and clear grouping for **Public**, **Authenticated**, and **Admin** endpoints.
 
 ---
 
