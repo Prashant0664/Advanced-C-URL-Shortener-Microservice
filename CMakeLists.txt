@@ -29,7 +29,6 @@ find_package(unofficial-mysql-connector-cpp CONFIG REQUIRED)
 find_package(sentry CONFIG REQUIRED)
 
 # FIX: Use the most likely correct vcpkg package name: 'httplib'
-# (The port is often named 'httplib', not 'cpp-httplib')
 find_package(httplib CONFIG REQUIRED)
 
 
@@ -44,6 +43,13 @@ target_link_libraries(url_shortner PRIVATE
     # FIX: Link against the correct library target 'httplib::httplib'
     httplib::httplib
 )
+
+# --- Linux-specific Real-Time Library (rt) for Asynchronous Networking ---
+# The 'rt' library is required by httplib on Linux for functions like getaddrinfo_a.
+# macOS includes this functionality in system libraries, so we exclude it here.
+if(NOT APPLE)
+    target_link_libraries(url_shortner PRIVATE rt)
+endif()
 
 
 # --- macOS networking frameworks ---
