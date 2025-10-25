@@ -26,6 +26,10 @@ RUN chown -R vscode:vscode /app/vcpkg
 # Point CMake to vcpkg toolchain
 ENV CMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake
 
+# --- FIX: Ensure the non-root user can create the build directory ---
+# Create the build directory and set its owner to 'vscode'
+RUN mkdir -p /app/build && chown -R vscode:vscode /app/build
+
 # Switch to the non-root user for compilation (SECURITY BEST PRACTICE)
 USER vscode
 
