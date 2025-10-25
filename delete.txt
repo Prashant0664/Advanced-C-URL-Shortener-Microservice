@@ -1,0 +1,39 @@
+
+/*
+
+## 2. Step-by-Step API Testing Guide
+
+You can test all the implemented features (Quota, Auth, Custom Codes, Analytics, Management) using `curl`.
+
+### **Phase 0: Setup and Pre-flight Checks**
+
+1.  **Run Server:** Compile and run your C++ server executable (`./url_shortner`).
+2.  **Database Setup:** Ensure your MySQL database is running and you have run the following **SQL** commands:
+    * **User Setup:** Insert a dummy user and a valid session token for authenticated tests.
+
+    ```sql
+    -- DUMMY USER: ID 101
+    INSERT INTO users (id, google_id, email, name) VALUES (101, 'dummy_auth_id', 'test@user.com', 'Test User') ON DUPLICATE KEY UPDATE id=id;
+
+    -- DUMMY SESSION: Token is 'valid-token-123', expires well into the future
+    INSERT INTO sessions (user_id, session_token, expires_at) VALUES (101, 'valid-token-123', DATE_ADD(NOW(), INTERVAL 1 DAY));
+
+    -- EXPIRED SESSION: Token is 'expired-token' (used to test cleanup in middleware)
+    INSERT INTO sessions (user_id, session_token, expires_at) VALUES (102, 'expired-token', DATE_SUB(NOW(), INTERVAL 1 DAY));
+  
+Step,Feature Tested,Command,Expected Result
+1. Create (Guest 1/5),Quota initialization & tracking.,"curl -v -X POST http://localhost:9080/shorten -H ""X-Forwarded-For: 10.0.0.100"" -d '{""long_url"": ""https://guest.test.link""}'",Status 201 Created.
+2. Hit Limit,guest_daily_quotas failure.,Repeat the command from Step 1 five more times.,The 6th attempt returns Status 403 Forbidden.
+3. Authenticated Bypass,AuthMiddleware success & limit bypass.,"curl -v -X POST http://localhost:9080/shorten -H ""Authorization: Bearer valid-token-123"" -H ""X-Forwarded-For: 10.0.0.100"" -d '{""long_url"": ""https://auth-bypass.link""}'",Status 201 Created. (Quota is successfully ignored).
+4. Expired Token Cleanup,Token Expiration Logic.,"curl -X POST http://localhost:9080/shorten -H ""Authorization: Bearer expired-token"" -d '{""long_url"": ""https://test.cleanup""}'",Status 403 Forbidden (since the expired token is treated as unauthenticated after cleanup).
+
+
+Step,Feature Tested,Command,Expected Result
+5. Custom Short Code,Custom Short Codes (Success).,"curl -X POST http://localhost:9080/shorten -H ""Authorization: Bearer valid-token-123"" -d '{""long_url"": ""https://my.dashboard.link"", ""custom_code"": ""myadminlink""}'",Status 201 Created. Short URL should be .../myadminlink.
+6. Custom Code Conflict,Custom Short Codes (Failure).,"curl -X POST http://localhost:9080/shorten -H ""Authorization: Bearer valid-token-123"" -d '{""long_url"": ""https://will.fail"", ""custom_code"": ""myadminlink""}'","Status 409 Conflict, due to short_code unique constraint."
+7. Link Redirect,Core Redirection & Link Expiration (check).,"(Use the short code from Step 5, e.g., myadminlink) curl -I http://localhost:9080/myadminlink","Status 302 Found, redirects to https://my.dashboard.link."
+8. Link Management,Link Management Dashboard (Read).,"curl -X GET http://localhost:9080/api/links -H ""Authorization: Bearer valid-token-123""","Status 200 OK, returns a JSON array listing all the links created by User ID 101, showing their clicks count."
+9. Analytics Check,Link Analytics (Increment).,Run Step 7 one more time. Then run Step 8 again.,"In the JSON output (Step 8), the link's clicks counter should now be 2."
+
+
+*/
