@@ -8,7 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <fstream>
-
+#include <iomanip>
 
 // Include necessary standard namespace functions explicitly to resolve ambiguities
 using std::cerr;
@@ -399,8 +399,11 @@ bool UrlShortenerDB::createLink(const ShortenedLink& link) {
         now += std::chrono::hours(24 * Config::LINK_EXPIRED_IN);  // add days
         std::time_t t = std::chrono::system_clock::to_time_t(now);
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
-        std::string expires_at = !link.expires_at.empty() ? link.expires_at : ss.str();
+        char buffer[20];
+        std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+        std::string expires_at = !link.expires_at.empty() ? link.expires_at : std::string(buffer);
+        // ss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
+        // std::string expires_at = !link.expires_at.empty() ? link.expires_at : ss.str();
 
     // Handle optional expires_at (Link Expiration)
         Value expires_at_val = Value(expires_at);
