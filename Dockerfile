@@ -45,10 +45,10 @@ RUN cmake --build build --config Release
 FROM debian:bookworm-slim AS runtime
 
 # Runtime dependencies compatible with Bookworm
-# FIX: Replaced versioned package name with generic library links
-RUN apt-get update && apt-get install -y \
+# FIX: Using MariaDB client libraries as recommended by Debian Bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
-    libmysqlclient-dev \
+    libmariadb-dev-compat \
     libstdc++6 \
     libgcc-s1 \
     libgomp1 \
