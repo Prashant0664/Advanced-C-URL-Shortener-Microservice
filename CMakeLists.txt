@@ -52,6 +52,7 @@ if(NOT APPLE)
         rt         # Real-Time library
         pthread    # POSIX threads
         resolv     # DNS resolver
+        anl
     )
 endif()
 
