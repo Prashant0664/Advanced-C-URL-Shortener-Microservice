@@ -16,7 +16,7 @@ mutex dbMutex; // Global mutex to lock database access across threads
 
 // --- Main Entry Point ---
 int main() {
-    cout << "RUNNING: Starting URL Shortener Service initialization..." << endl;
+    cerr << "RUNNING: Starting URL Shortener Service initialization..." << endl;
     
     // 1. Initialize Database (Connect and Ensure Schema exists)
     // The db object handles connection and setup logic defined in UrlShortenerDB.cpp
@@ -30,7 +30,7 @@ int main() {
     UrlShortenerServer app(db, dbMutex);
     
     // 3. Run the Server
-    cout << "Listening on http://0.0.0.0:9080" << endl;
+    cerr << "Listening on http://0.0.0.0:9080" << endl;
     if (!app.run()) {
         cerr << "FATAL: Server failed to start or shut down unexpectedly." << endl;
         return 1;

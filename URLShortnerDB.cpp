@@ -90,7 +90,7 @@ bool UrlShortenerDB::connect() {
     try {
         // session.reset(new mysqlx::Session(Config::DB_HOST, Config::DB_PORT, Config::DB_USER, Config::DB_PASS));
         session.reset(new mysqlx::Session(Config::DB_HOST, Config::DB_PORT, Config::DB_USER, Config::DB_PASS));
-
+        
         // Create database if it doesn't exist
         session->sql("CREATE DATABASE IF NOT EXISTS " + Config::DB_NAME).execute();
 
@@ -143,7 +143,7 @@ bool UrlShortenerDB::setupDatabase() {
     }
     
     // In a real app, you would execute the table creation SQL here
-    cout << "DB_INFO: Executing table creation and initial settings SQL (SIMULATED)." << endl;
+    cerr << "DB_INFO: Executing table creation and initial settings SQL (SIMULATED)." << endl;
      try {
         // 1️⃣ Read the schema file
         std::ifstream file("../schema.sql");
@@ -195,7 +195,7 @@ bool UrlShortenerDB::setupDatabase() {
         if (trimmed.empty())
             continue;
 
-        cout << "Executing SQL: " << trimmed << endl;
+        cerr << "Executing SQL: " << trimmed << endl;
 
         // Execute the SQL directly
         session->sql(trimmed).execute();
@@ -318,7 +318,7 @@ bool UrlShortenerDB::deleteSession(const string& token) {
     try {
         string sql = "DELETE FROM sessions WHERE session_token = ?";
         session->sql(sql).bind(Value(token)).execute();
-        cout << "DB_INFO: Session deleted successfully." << endl;
+        cerr << "DB_INFO: Session deleted successfully." << endl;
         return true;
     } catch (const mysqlx::Error& e) {
         cerr << "DB_ERROR: Failed to delete session: " << e.what() << endl;
@@ -566,7 +566,7 @@ bool UrlShortenerDB::checkAndUpdateGuestQuota(const string& guest_identifier, co
             cerr<<"DB_CONFIG_ERROR: Unable to find config for key MAX_GUEST_LINKS_PER_DAY"<<endl;
         }
         if (links_created_today >=MAX_GUEST_LINKS_PER_DAY ) {
-            cout << "DB_CHECK: Quota limit reached (" << links_created_today << "/" << MAX_GUEST_LINKS_PER_DAY << ") for " << guest_identifier << endl;
+            cerr << "DB_CHECK: Quota limit reached (" << links_created_today << "/" << MAX_GUEST_LINKS_PER_DAY << ") for " << guest_identifier << endl;
             return false; // Quota exceeded
         }
 

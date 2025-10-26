@@ -298,7 +298,7 @@ UrlShortenerServer::UrlShortenerServer(UrlShortenerDB& db_instance, std::mutex& 
 }
 
 bool UrlShortenerServer::run() {
-    cout << "Starting URL Shortener Service on port 9080..." << endl;
+    cerr << "Starting URL Shortener Service on port 9080..." << endl;
     return svr.listen("0.0.0.0", 9080);
 }
 // NEW: Endpoint Stat Tracking Middleware Implementation
@@ -324,7 +324,7 @@ httplib::Server::HandlerResponse UrlShortenerServer::EndpointStatMiddleware(cons
 }
 // --- Middleware Setup ---
 void UrlShortenerServer::setupMiddleware() {
-    cout << "ckonekw" << endl; // This runs during initialization
+    cerr << "ckonekw" << endl; // This runs during initialization
 
     // Register ONE SINGLE pre-routing handler function
     svr.set_pre_routing_handler([this](const httplib::Request &req, httplib::Response &res) {
@@ -728,7 +728,7 @@ void UrlShortenerServer::handleGoogleRedirect(const httplib::Request &req, httpl
     res.set_header("Location", authUrl.str());
     res.set_content("Redirecting to Google for authentication...", "text/plain");
 
-    std::cout << "SERVER_INFO: Redirecting client for Google OAuth. State saved." << std::endl;
+    std::cerr << "SERVER_INFO: Redirecting client for Google OAuth. State saved." << std::endl;
 }
 
 
@@ -767,7 +767,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             // State is valid and not expired, consume it immediately to prevent replay/reuse
             oauthStates.erase(it);
         }
-        std::cout << "SERVER_DEBUG: State validated. Code received. Proceeding to token exchange." << std::endl;
+        std::cerr << "SERVER_DEBUG: State validated. Code received. Proceeding to token exchange." << std::endl;
 
         // 1. Prepare POST body
         std::stringstream postBody; 
@@ -778,7 +778,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
                  << "&grant_type=authorization_code";
         
         std::string finalPostBody = postBody.str();
-        std::cout << "SERVER_DEBUG: Token exchange POST body: " << finalPostBody << std::endl; // LOG POST BODY
+        std::cerr << "SERVER_DEBUG: Token exchange POST body: " << finalPostBody << std::endl; // LOG POST BODY
         
         // Prepare headers
         Headers headers;
@@ -808,7 +808,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
         // 2. Parse the JSON response for tokens
         std::string id_token = getJsonValue(token_res->body, "id_token");
         std::string access_token = getJsonValue(token_res->body, "access_token");
-        std::cout << "SERVER_DEBUG: Tokens extracted. ID Token start: " << id_token.substr(0, 10) << "..." << std::endl; // LOG SUCCESS
+        std::cerr << "SERVER_DEBUG: Tokens extracted. ID Token start: " << id_token.substr(0, 10) << "..." << std::endl; // LOG SUCCESS
 
         if (id_token.empty() || access_token.empty()) {
             std::cerr << "SERVER_ERROR: Failed to extract tokens from response." << std::endl;
@@ -837,7 +837,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
         std::string email = getJsonValue(user_info_res->body, "email");
         std::string name = getJsonValue(user_info_res->body, "name");
         std::string google_id = getJsonValue(user_info_res->body, "sub"); // 'sub' is the unique Google ID
-        std::cout << "SERVER_DEBUG: User Info received for: " << email << std::endl; // LOG USER DATA
+        std::cerr << "SERVER_DEBUG: User Info received for: " << email << std::endl; // LOG USER DATA
 
         if (email.empty() || name.empty() || google_id.empty()) {
             std::cerr << "SERVER_ERROR: Missing essential user info (email/name/sub)." << std::endl;
@@ -901,7 +901,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
         res.status = 302;
         res.set_header("Location", successRedirectUrl.str());
         res.set_content("Authentication successful. Redirecting...", "text/plain");
-        std::cout << "SERVER_INFO: User " << userId << " authenticated successfully. Redirecting with token." << std::endl;
+        std::cerr << "SERVER_INFO: User " << userId << " authenticated successfully. Redirecting with token." << std::endl;
         
     } catch (const std::exception& e) {
         // Catch any standard exceptions thrown by networking or memory issues
