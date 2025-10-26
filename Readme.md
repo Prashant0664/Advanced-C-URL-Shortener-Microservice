@@ -23,6 +23,7 @@
 - [Complete One-Line Command](#-complete-one-line-build--run-command)
 - [API Usage and Testing](#api-usage-and-testing)
 - [Security Notes](#security-notes)
+- [ScreenShots](#screenshots)
 
 ## INTRO:
 A high-performance, multi-threaded URL shortening microservice built in modern C++, using the httplib library for networking and the MySQL X DevAPI for persistent storage. It features full Google OAuth 2.0 integration for user authentication and built-in rate limiting.
@@ -261,3 +262,7 @@ Example Usage:
 Session Expiration: For testing, sessions are set to expire after 1 day. After this time, all authenticated API calls will receive a 401 Unauthorized response, forcing the user to re-authenticate via /auth/google.
 
 CSRF Protection: The server utilizes a state parameter check in handleGoogleCallback to prevent Cross-Site Request Forgery attacks during the OAuth handshake.
+
+
+## ScreenShots
+<img width="773" height="716" alt="image" src="https://github.com/user-attachments/assets/8ac612b6-df3f-4b02-8dcd-76e2006ef0d6" />
