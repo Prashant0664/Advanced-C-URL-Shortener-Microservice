@@ -44,15 +44,20 @@ target_link_libraries(url_shortner PRIVATE
     httplib::httplib
 )
 
-# --- Linux-specific Real-Time Library (rt) for Asynchronous Networking ---
-# The 'rt' library is required by httplib on Linux for functions like getaddrinfo_a.
-# macOS includes this functionality in system libraries, so we exclude it here.
+# --- Linux-specific Libraries for Networking and Threading ---
+# These libraries are often required on Linux (Docker) for httplib's asynchronous
+# and socket functionality (getaddrinfo_a, etc.).
 if(NOT APPLE)
-    target_link_libraries(url_shortner PRIVATE rt)
+    target_link_libraries(url_shortner PRIVATE
+        rt         # Real-Time library
+        pthread    # POSIX threads
+        resolv     # DNS resolver
+    )
 endif()
 
 
 # --- macOS networking frameworks ---
+# Required for networking functionality on Apple platforms.
 if(APPLE)
     find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
     find_library(CFNETWORK_FRAMEWORK CFNetwork)
