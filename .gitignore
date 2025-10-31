@@ -5,3 +5,5 @@
 /vcpkg
 /build
 /vcpkg
+/.vscode
+.vscode
