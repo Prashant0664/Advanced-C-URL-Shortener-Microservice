@@ -1,5 +1,6 @@
 
 #include "Server.h"
+
 #include <algorithm>
 #include <random>
 #include <sstream>
@@ -9,13 +10,15 @@
 #include <utility>
 #include <stdexcept>
 #include <ctime>
+
 using namespace std;
+
 using Clock = std::chrono::steady_clock;
 using Headers = httplib::Headers;
 
 std::unordered_map<std::string, std::chrono::steady_clock::time_point> oauthStates;
-
 std::mutex oauthStatesMutex;
+
 struct Bucket {
     double tokens = 10.0;
     chrono::steady_clock::time_point last = Clock::now();
@@ -88,7 +91,7 @@ std::string UrlShortenerServer::createSessionToken(unsigned int userId, const st
 
 
 
-// NEW: Handler for setting favorite status
+// Handler for setting favorite status
 void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
     
@@ -99,7 +102,6 @@ void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib
     }
     
     std::string code = extractShortUrl(req.body); 
-    // Check for "true" value for robust boolean parsing
     bool isFav = req.body.find("\"is_favourite\":true") != string::npos; 
     
     if (code.empty()) {
@@ -117,7 +119,8 @@ void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib
         res.set_content("Link not found or does not belong to user.", "text/plain");
     }
 }
-// NEW: Handler for deleting a link
+
+// Handler for deleting a link
 void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
     
@@ -136,7 +139,7 @@ void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::
     }
 
     unique_lock<mutex> lock(dbMutex);
-    // Use ctx.userId explicitly for clarity, assuming db.deleteLink takes userId first
+    // Using ctx.userId explicitly for clarity, assuming db.deleteLink takes userId first
     if (db.deleteLink(ctx.userId, code)) { 
         res.status = 200;
         res.set_content("Link deleted successfully.", "text/plain");
@@ -146,7 +149,7 @@ void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::
     }
 }
 
-// NEW: Handler for Admin-Only Test API
+// Handler for Admin-Only Test API
 void UrlShortenerServer::handleAdminTest(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
 
@@ -166,6 +169,7 @@ void UrlShortenerServer::handleAdminTest(const httplib::Request &req, httplib::R
     res.status = 200;
     res.set_content("Welcome, Admin! This is a restricted endpoint.", "text/plain");
 }
+
 // Function to store the RequestContext in the Response object
 void UrlShortenerServer::set_context(httplib::Response &res, const RequestContext &ctx) {
     // Stores context as a header string (best approach for httplib context passing)
@@ -260,17 +264,18 @@ string UrlShortenerServer::extractShortUrl(const string &body) {
 
     return body.substr(start + 1, end - start - 1);
 }
+
 // Database-backed quota check
 bool UrlShortenerServer::checkAndApplyRateLimitDB(const string &guestId) {
     try {
         string today = UrlShortenerDB::getTodayDate(); 
         
-        // 1. Check global limit toggle
+        // Check global limit toggle
         if (!db.isQuotaLimitEnabled()) {
              return true; 
         }
         
-        // 2. Check and update the guest_daily_quotas table
+        // Check and update the guest_daily_quotas table
         unique_lock<mutex> lock(dbMutex);
         // This method handles both the read and the conditional write
         return db.checkAndUpdateGuestQuota(guestId, today); 
@@ -284,7 +289,6 @@ bool UrlShortenerServer::checkAndApplyRateLimitDB(const string &guestId) {
 
 
 // --- Class Implementation ---
-
 UrlShortenerServer::UrlShortenerServer(UrlShortenerDB& db_instance, std::mutex& db_mutex_ref)
     : db(db_instance), dbMutex(db_mutex_ref) {
     setupMiddleware();
@@ -295,7 +299,7 @@ bool UrlShortenerServer::run() {
     cerr << "Starting URL Shortener Service on port 9080..." << endl;
     return svr.listen("0.0.0.0", 9080);
 }
-// NEW: Endpoint Stat Tracking Middleware Implementation
+// Endpoint Stat Tracking Middleware Implementation
 httplib::Server::HandlerResponse UrlShortenerServer::EndpointStatMiddleware(const httplib::Request &req, httplib::Response &res) {
     
     std::string endpointPath = req.path;
@@ -316,9 +320,10 @@ httplib::Server::HandlerResponse UrlShortenerServer::EndpointStatMiddleware(cons
     }
     return httplib::Server::HandlerResponse::Unhandled;
 }
+
 // --- Middleware Setup ---
 void UrlShortenerServer::setupMiddleware() {
-    cerr << "ckonekw" << endl; // This runs during initialization
+    cerr << "INIT SET UP MIDDLEWARE" << endl; // This runs during initialization
 
     // Register ONE SINGLE pre-routing handler function
     svr.set_pre_routing_handler([this](const httplib::Request &req, httplib::Response &res) {
@@ -341,7 +346,8 @@ void UrlShortenerServer::setupMiddleware() {
         return stat_result; 
     });
 
-    // NOTE: Logger Middleware would be integrated here as well.
+    /// @todo INTEGRATE LOGGER HERE
+
 }
 bool UrlShortenerServer::checkUserRole(const RequestContext &ctx, const std::string &requiredRole) {
     if (ctx.userRole == "admin") {
@@ -359,11 +365,11 @@ httplib::Server::HandlerResponse UrlShortenerServer::AuthMiddleware(const httpli
     RequestContext ctx;
     string token;
     std::string clientIp = req.remote_addr;
-    // if (!checkBucket(clientIp)) {
-    //     res.status = 429; // Too Many Requests
-    //     res.set_content("Rate limit exceeded. Please slow down.", "text/plain");
-    //     return httplib::Server::HandlerResponse::Handled; // Stop request here
-    // }
+    if (!checkBucket(clientIp)) {
+        res.status = 429; // Too Many Requests
+        res.set_content("Rate limit exceeded. Please slow down.", "text/plain");
+        return httplib::Server::HandlerResponse::Handled; // Stop request here
+    }
 
     if (req.has_header("Authorization")) {
         string authHeader = req.get_header_value("Authorization");
@@ -439,8 +445,7 @@ void UrlShortenerServer::setupRoutes() {
         this->handleGoogleCallback(req, res);
     });
 
-    // NEW: Mock success page to display the token after sign-in
-    // NEW: Mock success page to display the token after sign-in (NOW SECURED WITH DB CHECK)
+    // Mock success page to display the token after sign-in (SECURED WITH DB CHECK)
     svr.Get("/auth/success", [this](const httplib::Request &req, httplib::Response &res) {
         std::string token = req.get_param_value("token");
         std::string user = req.get_param_value("user");
@@ -451,7 +456,7 @@ void UrlShortenerServer::setupRoutes() {
             return;
         }
 
-        // === NEW: CHECK SESSION VALIDITY AGAINST DB ===
+        // === CHECK SESSION VALIDITY AGAINST DB ===
         unique_lock<mutex> lock(dbMutex);
         // db.findSessionByToken returns nullptr if token is not found OR has expired.
         std::unique_ptr<Session> sessionObj = db.findSessionByToken(token);
@@ -465,6 +470,7 @@ void UrlShortenerServer::setupRoutes() {
         // === END DB CHECK ===
 
         std::stringstream html;
+
         html << R"html(
             <!DOCTYPE html>
             <html lang="en">
@@ -531,10 +537,8 @@ void UrlShortenerServer::setupRoutes() {
         res.set_content(html.str(), "text/html");
     });
 }
-// --- Route Handlers ---
 
 // --- Route Handlers ---
-
 void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
     string longUrl = extractLongUrl(req.body);
@@ -542,7 +546,6 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     string expiryDate = req.has_param("expires_at") ? req.get_param_value("expires_at") : "";
     string clientIp = req.remote_addr;
     
-    // ... (URL validation code remains the same) ...
     if (longUrl.empty() || longUrl.size() > Config::MAX_URL_LENGTH || 
         (longUrl.compare(0, 7, "http://") != 0 && longUrl.compare(0, 8, "https://") != 0)) {
         res.status = 400;
@@ -551,14 +554,14 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     }
 
 
-    // --- 1. Custom Code Restriction ---
+    // --- Custom Code Restriction ---
     if (!customCode.empty() && !ctx.isAuthenticated) {
         res.status = 403;
         res.set_content("Custom short codes require a signed-in account.", "text/plain");
         return;
     }
 
-    // --- 2. Rate Limiting ---
+    // --- Rate Limiting ---
     // Acquire the lock early to safely handle all DB-dependent checks (including getConfig)
     // and the final link creation.
     unique_lock<mutex> lock(dbMutex); 
@@ -610,7 +613,7 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     // Link Expiration
     linkToSave.expires_at = expiryDate!=""?expiryDate:"";
     
-    // 4. Save Link (Protected by the lock acquired above)
+    // Save Link (Protected by the lock acquired above)
     if (!db.createLink(linkToSave)) {
         lock.unlock();
         res.status = 409; // Conflict
@@ -639,7 +642,6 @@ void UrlShortenerServer::handleRedirect(const httplib::Request &req, httplib::Re
     
     if (link) {
         // Link Expiration Check is done inside getLinkByShortCode (WHERE expires_at > NOW())
-        
         // Link Analytics (Click Tracking)
         db.incrementLinkClicks(link->id); 
         
@@ -694,11 +696,11 @@ void UrlShortenerServer::handleUserLinks(const httplib::Request &req, httplib::R
 
 
 
-// NEW: Initiates the OAuth flow by redirecting to Google
+// Initiates the OAuth flow by redirecting to Google
 void UrlShortenerServer::handleGoogleRedirect(const httplib::Request &req, httplib::Response &res) {
     std::string state = generateRandomState(16);
 
-    // CRITICAL FIX: Store the state token server-side for validation in the callback
+    // Store the state token server-side for validation in the callback
     {
         std::lock_guard<std::mutex> lock(oauthStatesMutex);
         // State expires after 5 minutes
@@ -721,7 +723,7 @@ void UrlShortenerServer::handleGoogleRedirect(const httplib::Request &req, httpl
 }
 
 
-// FULL IMPLEMENTATION: Handles the callback, token exchange, user creation, and session management
+// Handles the callback, token exchange, user creation, and session management
 void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httplib::Response &res) {
     std::string code = req.get_param_value("code");
     std::string state = req.get_param_value("state");
@@ -734,7 +736,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
     
     // Begin comprehensive exception handling for external calls
     try {
-        // CRITICAL: 0. Validate and Consume State Token (CSRF Check)
+        // Validate and Consume State Token (CSRF Check)
         {
             std::lock_guard<std::mutex> lock(oauthStatesMutex);
             auto it = oauthStates.find(state);
@@ -758,7 +760,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
         }
         std::cerr << "SERVER_DEBUG: State validated. Code received. Proceeding to token exchange." << std::endl;
 
-        // 1. Prepare POST body
+        // Prepare POST body
         std::stringstream postBody; 
         postBody << "code=" << code
                  << "&client_id=" << Config::GOOGLE_CLIENT_ID
@@ -773,10 +775,10 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
         Headers headers;
         headers.insert(std::make_pair("Content-Type", "application/x-www-form-urlencoded"));
         
-        // FIX: Construct SSLClient immediately before use to minimize memory window
+        // Construct SSLClient immediately before use to minimize memory window
         httplib::SSLClient cli("oauth2.googleapis.com");
         
-        // Note: For SSLClient, the path is '/token' since the host is set in the constructor
+        // For SSLClient, the path is '/token' since the host is set in the constructor
         auto token_res = cli.Post("/token", headers, finalPostBody, "application/x-www-form-urlencoded");
 
         if (!token_res) {
@@ -794,7 +796,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             return;
         }
 
-        // 2. Parse the JSON response for tokens
+        // Parse the JSON response for tokens
         std::string id_token = getJsonValue(token_res->body, "id_token");
         std::string access_token = getJsonValue(token_res->body, "access_token");
         std::cerr << "SERVER_DEBUG: Tokens extracted. ID Token start: " << id_token.substr(0, 10) << "..." << std::endl; // LOG SUCCESS
@@ -806,8 +808,8 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             return;
         }
 
-        // 3. Get User Info (or decode ID Token) - Using the User Info endpoint is simpler for testing
-        // FIX: Construct SSLClient immediately before use to minimize memory window
+        // Get User Info (or decode ID Token) - Using the User Info endpoint is simpler for testing
+        // Construct SSLClient immediately before use to minimize memory window
         httplib::SSLClient userCli("www.googleapis.com"); 
         Headers userHeaders; // Use explicit declaration
         userHeaders.insert(std::make_pair("Authorization", "Bearer " + access_token)); // Use explicit insert
@@ -822,7 +824,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             return;
         }
 
-        // 4. Extract user data (simplified JSON parsing)
+        // Extract user data (simplified JSON parsing)
         std::string email = getJsonValue(user_info_res->body, "email");
         std::string name = getJsonValue(user_info_res->body, "name");
         std::string google_id = getJsonValue(user_info_res->body, "sub"); // 'sub' is the unique Google ID
@@ -835,7 +837,7 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             return;
         }
 
-        // 5. Create/Find User and Create Session
+        // Create/Find User and Create Session
         unique_lock<mutex> lock(dbMutex);
         
         unique_ptr<User> existingUser = db.findUserByEmail(email);
@@ -875,10 +877,10 @@ void UrlShortenerServer::handleGoogleCallback(const httplib::Request &req, httpl
             return;
         }
 
-        // 6. Respond to Client: Redirect to a success page with the token
+        // Respond to Client: Redirect to a success page with the token
         std::stringstream successRedirectUrl;
         
-        // FIX: Ensure there is a slash after the BASE_URL if it doesn't end with one.
+        // Ensure there is a slash after the BASE_URL if it doesn't end with one.
         // The safest approach is to check if BASE_URL ends with a slash, and if not, add one.
         std::string baseUrl = Config::BASE_URL;
         if (!baseUrl.empty() && baseUrl.back() != '/') {

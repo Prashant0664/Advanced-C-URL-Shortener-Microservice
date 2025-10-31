@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS global_settings (id INT UNSIGNED NOT NULL AUTO_INCREM
 ;
 INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_LINK_LIMIT_ENABLED','true','If true, unauthenticated users are limited to 5 links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
 ;
-INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_GUEST_LINKS_PER_DAY','100000','If true, unauthenticated users are limited to {count} links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
+INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_GUEST_LINKS_PER_DAY','10','If true, unauthenticated users are limited to {count} links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
 
 -- -----------------------------------------------------
 

@@ -2,7 +2,6 @@
 
 #include <string>
 
-// Simulates loading configuration from environment variables or a .env file.
 class Config {
 public:
     static const std::string DB_HOST;

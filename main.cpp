@@ -9,7 +9,7 @@ using namespace std;
 using namespace httplib;
 
 // --- Global Data and Database Instance ---
-// Note: These must be outside main() for the Server class methods to access them by reference.
+// These must be outside main() for the Server class methods to access them by reference.
 UrlShortenerDB db; 
 mutex dbMutex; // Global mutex to lock database access across threads
 
@@ -18,14 +18,14 @@ mutex dbMutex; // Global mutex to lock database access across threads
 int main() {
     cerr << "RUNNING: Starting URL Shortener Service initialization..." << endl;
     
-    // 1. Initialize Database (Connect and Ensure Schema exists)
+    // Initialize Database (Connect and Ensure Schema exists)
     // The db object handles connection and setup logic defined in UrlShortenerDB.cpp
     if (!db.connect() || !db.setupDatabase()) {
         cerr << "FATAL: Database initialization failed. Please check credentials and MySQL server status. Exiting." << endl;
         return 1;
     }
     
-    // 2. Initialize the Server Application
+    // Initialize the Server Application
     // The UrlShortenerServer class encapsulates all routes, middleware, and handlers.
     UrlShortenerServer app(db, dbMutex);
     

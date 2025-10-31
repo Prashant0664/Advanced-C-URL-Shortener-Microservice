@@ -1,31 +1,31 @@
 #include "URLShortnerDB.h"
 #include "Config.h"
+
 #include "Modals/UserDTO.h"
 #include "Modals/SessionDTO.h"
 #include "Modals/ShortenedLink.h"
 #include "Modals/QuotaDTO.h"
+
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <fstream>
 #include <iomanip>
-#include <chrono> // For chrono usage
+#include <chrono>
 
-// Include necessary standard namespace functions explicitly to resolve ambiguities
 using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
 using std::unique_ptr;
 using std::runtime_error;
-using std::lock_guard; // Use lock_guard for pool access
+using std::lock_guard;
 using std::unique_lock;
 
-// Use namespace aliases for MySQL types to improve readability inside the functions
 using mysqlx::abi2::Value;
 using mysqlx::abi2::RowResult;
 
-// --- CONNECTION POOL HELPERS (NEW) ---
+// --- CONNECTION POOL HELPERS ---
 
 std::unique_ptr<mysqlx::Session> UrlShortenerDB::getConnection() {
     unique_lock<std::mutex> lock(poolMutex);
@@ -47,10 +47,9 @@ std::unique_ptr<mysqlx::Session> UrlShortenerDB::getConnection() {
     
     return session;
 }
-std::string UrlShortenerDB::getConfig(mysqlx::Session& currentSession, std::string key){
-    // Removed connection acquisition/return logic
-    std::string value = "";
 
+std::string UrlShortenerDB::getConfig(mysqlx::Session& currentSession, std::string key){
+    std::string value = "";
     try
     {
         string sql = "SELECT setting_value FROM global_settings WHERE setting_key = ?";
@@ -63,7 +62,6 @@ std::string UrlShortenerDB::getConfig(mysqlx::Session& currentSession, std::stri
     }
     catch(const std::exception& e)
     {
-        // Don't log DB_ERROR here since the caller handles the main connection
         value = "invalid request"; 
     }
     // Removed returnConnection(std::move(currentSession));
@@ -78,7 +76,7 @@ void UrlShortenerDB::returnConnection(std::unique_ptr<mysqlx::Session> session) 
 }
 
 
-// --- Helper Functions (MODIFIED) ---
+// --- Helper Functions ---
 
 string UrlShortenerDB::getTodayDate() {
     time_t now = time(nullptr);
@@ -88,7 +86,7 @@ string UrlShortenerDB::getTodayDate() {
     return buffer;
 }
 
-// NEW HELPER: Generates a future timestamp for session/link expiration
+// Generates a future timestamp for session/link expiration
 string UrlShortenerDB::getFutureTimestamp(int days) {
     auto now = std::chrono::system_clock::now();
     auto future = now + std::chrono::minutes(24 * days);
@@ -111,7 +109,7 @@ string UrlShortenerDB::getCurrentTimestamp() {
 
 // Helper method implementation (DECOUPLED FROM SHARED MEMBER)
 unique_ptr<RowResult> UrlShortenerDB::executeStatement(
-    mysqlx::Session& currentSession, // <-- Session parameter added
+    mysqlx::Session& currentSession, // Session parameter
     const string& sql, 
     const std::vector<Value>& params
 ) {
@@ -141,9 +139,8 @@ UrlShortenerDB::~UrlShortenerDB() {
 bool UrlShortenerDB::connect() {
     // Use a temporary session object to establish connections for the pool
     std::unique_ptr<mysqlx::Session> tempSession; 
-    cout<<"here1111";
     try {
-        // --- 1. INITIALIZE POOL ---
+        // --- INITIALIZE POOL ---
         for (int i = 0; i < poolSize; ++i) {
             tempSession = std::make_unique<mysqlx::Session>(
                 Config::DB_HOST, 
@@ -156,16 +153,14 @@ bool UrlShortenerDB::connect() {
             connectionPool.push(std::move(tempSession));
         }
 
-        // --- 2. CREATE DATABASE (Use a single pool session for DDL) ---
+        // --- CREATE DATABASE (Use a single pool session for DDL) ---
         // We use one connection from the pool for initial DDL (Data Definition Language)
         tempSession = getConnection(); 
-        cout<<"here2222";
         tempSession->sql("CREATE DATABASE IF NOT EXISTS " + Config::DB_NAME).execute();
         tempSession->sql("USE " + Config::DB_NAME).execute();
         
         // Return the session to the pool
         returnConnection(std::move(tempSession));
-        cout<<"here3333";
 
         cerr << "DB_INFO: Database connection pool established with " << poolSize << " sessions to " << Config::DB_NAME << endl;
 
@@ -183,7 +178,7 @@ bool UrlShortenerDB::connect() {
     }
 }
 
-// MODIFIED: Uses pool session and correct EXECUTE HELPER
+// Uses pool session and correct EXECUTE HELPER
 bool UrlShortenerDB::incrementEndpointStat(const std::string& endpoint,
                                            const std::string& method,
                                            const std::string& createdBy) {
@@ -204,7 +199,7 @@ bool UrlShortenerDB::incrementEndpointStat(const std::string& endpoint,
             Value(method),
             Value(createdBy)
         };
-        UrlShortenerDB::executeStatement(*currentSession, sql, params); // Pass session
+        UrlShortenerDB::executeStatement(*currentSession, sql, params); 
         returnConnection(std::move(currentSession));
         return true;
     } catch (const std::exception& e) {
@@ -214,7 +209,7 @@ bool UrlShortenerDB::incrementEndpointStat(const std::string& endpoint,
     }
 }
 
-// MODIFIED: Uses pool session for DDL execution
+// Uses pool session for DDL execution
 bool UrlShortenerDB::setupDatabase() {
     if (!isConnected) {
         cerr << "DB_ERROR: Cannot set up database: No active pool." << endl;
@@ -227,7 +222,7 @@ bool UrlShortenerDB::setupDatabase() {
         currentSession = getConnection();
         cerr << "DB_INFO: Executing table creation and initial settings SQL." << endl;
         
-        // 1️⃣ Read the schema file
+        // Read the schema file
         std::ifstream file("../schema.sql");
         if (!file.is_open()) {
             cerr << "DB_ERROR: Could not open schema.sql" << endl;
@@ -239,7 +234,7 @@ bool UrlShortenerDB::setupDatabase() {
         buffer << file.rdbuf();
         string sqlContent = buffer.str();
 
-        // 2️⃣ Split by ';' and execute
+        // Split by ';' and execute
         std::vector<string> statements;
         string current;
         for (char c : sqlContent) {
@@ -252,7 +247,7 @@ bool UrlShortenerDB::setupDatabase() {
             }
         }
 
-        // 3️⃣ Execute each statement
+        // Execute each statement
         for (auto& stmt : statements) {
             try {
                 // ... (Trimming and cleaning logic remains the same) ...
@@ -294,7 +289,7 @@ bool UrlShortenerDB::setupDatabase() {
     }
 }
 
-// --- User & Session Methods (MODIFIED) ---
+// --- User & Session Methods ---
 
 bool UrlShortenerDB::createUser(const User& user) {
     if (!isConnected) return false;
@@ -328,7 +323,7 @@ unique_ptr<User> UrlShortenerDB::findUserByGoogleId(const string& google_id) {
     try {
         currentSession = getConnection();
         string sql = "SELECT id, google_id, email, name, created_at FROM users WHERE google_id = ?";
-        auto result = executeStatement(*currentSession, sql, {Value(google_id)}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {Value(google_id)}); 
         
         if (auto row = result->fetchOne()) {
             user = std::make_unique<User>();
@@ -347,7 +342,7 @@ unique_ptr<User> UrlShortenerDB::findUserByGoogleId(const string& google_id) {
     return user;
 }
 
-// NEW FUNCTION: Find user by email (essential for standard OAuth lookup)
+// Find user by email (essential for standard OAuth lookup)
 unique_ptr<User> UrlShortenerDB::findUserByEmail(const string& email) {
     if (!isConnected) return nullptr;
     std::unique_ptr<mysqlx::Session> currentSession;
@@ -356,7 +351,7 @@ unique_ptr<User> UrlShortenerDB::findUserByEmail(const string& email) {
     try {
         currentSession = getConnection();
         string sql = "SELECT id, google_id, email, name, created_at FROM users WHERE email = ?";
-        auto result = executeStatement(*currentSession, sql, {Value(email)}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {Value(email)}); 
         
         if (auto row = result->fetchOne()) {
             user = std::make_unique<User>();
@@ -375,7 +370,7 @@ unique_ptr<User> UrlShortenerDB::findUserByEmail(const string& email) {
     return user;
 }
 
-// FIX: Explicitly refers to the DTO struct and avoids ambiguity
+// Explicitly refers to the DTO struct and avoids ambiguity
 bool UrlShortenerDB::createSession(const ::Session& sessionObj) {
     if (!isConnected) return false;
     std::unique_ptr<mysqlx::Session> currentSession;
@@ -387,7 +382,7 @@ bool UrlShortenerDB::createSession(const ::Session& sessionObj) {
         std::vector<Value> params = {
             Value(sessionObj.user_id),
             Value(sessionObj.session_token),
-            Value(sessionObj.expires_at) // Assuming this is a formatted string (YYYY-MM-DD HH:MM:SS)
+            Value(sessionObj.expires_at) // formatted string (YYYY-MM-DD HH:MM:SS)
         };
 
         currentSession->sql(sql).bind(params).execute();
@@ -424,7 +419,7 @@ unique_ptr<::Session> UrlShortenerDB::findSessionByToken(const string& token) {
     try {
         currentSession = getConnection();
         string sql = "SELECT id, user_id, session_token, expires_at FROM sessions WHERE session_token = ? AND expires_at > NOW()";
-        auto result = executeStatement(*currentSession, sql, {Value(token)}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {Value(token)}); 
         
         if (auto row = result->fetchOne()) {
             sessionObj = std::make_unique<::Session>();
@@ -452,7 +447,7 @@ bool UrlShortenerDB::setLinkFavorite(const int&userId, const string&code, const 
             Value(userId),
             Value(code)
         };
-        UrlShortenerDB::executeStatement(*currentSession, sql, params); // Pass session
+        UrlShortenerDB::executeStatement(*currentSession, sql, params); 
         returnConnection(std::move(currentSession));
         return true;
     }
@@ -475,7 +470,7 @@ bool UrlShortenerDB::deleteLink(const int&id, const string&code){
             Value(id),
             Value(code),
         };
-        UrlShortenerDB::executeStatement(*currentSession, sql, params); // Pass session
+        UrlShortenerDB::executeStatement(*currentSession, sql, params); 
         returnConnection(std::move(currentSession));
         return true;
     }
@@ -536,7 +531,7 @@ bool UrlShortenerDB::createLink(const ShortenedLink& link) {
         return false;
     }
 }
-// NEW FUNCTION: Implements Link Analytics (Click Tracking)
+// Implements Link Analytics (Click Tracking)
 bool UrlShortenerDB::incrementLinkClicks(unsigned int link_id) {
     if (!isConnected) return false;
     std::unique_ptr<mysqlx::Session> currentSession;
@@ -561,7 +556,7 @@ unique_ptr<std::vector<ShortenedLink>> UrlShortenerDB::getLinksByUserId(unsigned
     try {
         currentSession = getConnection();
         string sql = "SELECT id, original_url, short_code, expires_at, clicks, created_at FROM shortened_links WHERE user_id = ? ORDER BY created_at DESC";
-        auto result = executeStatement(*currentSession, sql, {Value(user_id)}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {Value(user_id)}); 
         
         links = std::make_unique<std::vector<ShortenedLink>>();
 
@@ -593,7 +588,7 @@ unique_ptr<ShortenedLink> UrlShortenerDB::getLinkByShortCode(const string& code)
         // Check for the code AND ensure it hasn't expired (Link Expiration)
         string sql = "SELECT id, original_url, short_code, user_id, expires_at, clicks FROM shortened_links "
                      "WHERE short_code = ? AND (expires_at IS NULL OR expires_at > NOW())";
-        auto result = executeStatement(*currentSession, sql, {Value(code)}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {Value(code)}); 
         
         if (auto row = result->fetchOne()) {
             link = std::make_unique<ShortenedLink>();
@@ -619,7 +614,6 @@ unique_ptr<ShortenedLink> UrlShortenerDB::getLinkByShortCode(const string& code)
 }
 
 // --- Quota Management ---
-
 bool UrlShortenerDB::isQuotaLimitEnabled() {
     if (!isConnected) return true; // Default to true if DB fails (fail-safe)
     std::unique_ptr<mysqlx::Session> currentSession;
@@ -628,7 +622,7 @@ bool UrlShortenerDB::isQuotaLimitEnabled() {
     try {
         currentSession = getConnection();
         string sql = "SELECT setting_value FROM global_settings WHERE setting_key = 'MAX_LINK_LIMIT_ENABLED'";
-        auto result = executeStatement(*currentSession, sql, {}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {}); 
         
         if (auto row = result->fetchOne()) {
             string value = row[0].get<string>();
@@ -651,10 +645,10 @@ std::string UrlShortenerDB::getConfig(std::string key){
         currentSession = getConnection();
         string sql = "use database ";
         sql+=Config::DB_NAME;
-        auto result = executeStatement(*currentSession, sql, {}); // Pass session
+        auto result = executeStatement(*currentSession, sql, {}); 
         
         sql = "SELECT setting_value FROM global_settings WHERE setting_key = ?";
-        result = executeStatement(*currentSession, sql, {Value(key)}); // Pass session
+        result = executeStatement(*currentSession, sql, {Value(key)}); 
         
         if (auto row = result->fetchOne()) {
             value = row[0].get<string>();
@@ -677,7 +671,7 @@ bool UrlShortenerDB::checkAndUpdateGuestQuota(const string& guest_identifier, co
     try {
         currentSession = getConnection();
 
-        // 1. SELECT current quota
+        // SELECT current quota
         string select_sql = "SELECT links_created FROM guest_daily_quotas WHERE guest_identifier = ? AND quota_date = ?";
         auto result = executeStatement(*currentSession, select_sql, {Value(guest_identifier), Value(today_date)});
         
@@ -703,7 +697,7 @@ bool UrlShortenerDB::checkAndUpdateGuestQuota(const string& guest_identifier, co
             cerr << "DB_CHECK: Quota limit reached (" << links_created_today << "/" << MAX_GUEST_LINKS_PER_DAY << ") for " << guest_identifier << endl;
             success = false; // Quota exceeded
         } else {
-            // 2. INSERT or UPDATE quota (ON DUPLICATE KEY UPDATE)
+            // INSERT or UPDATE quota (ON DUPLICATE KEY UPDATE)
             string upsert_sql = "INSERT INTO guest_daily_quotas (guest_identifier, quota_date, links_created, created_at, updated_at) "
                                 "VALUES (?, ?, 1, NOW(), NOW()) "
                                 "ON DUPLICATE KEY UPDATE links_created = links_created + 1, updated_at = NOW()";

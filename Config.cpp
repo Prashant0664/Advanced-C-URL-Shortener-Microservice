@@ -3,6 +3,7 @@
 #include <string>
 #include <iostream>
 using namespace std;
+
 // Helper lambda to safely read environment variables
 // Provides a hardcoded default only for non-sensitive local testing setup.
 static std::string getEnv(const char* name, const std::string& defaultValue = "") {

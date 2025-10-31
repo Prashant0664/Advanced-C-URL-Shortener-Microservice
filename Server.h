@@ -7,7 +7,7 @@
 
 #include "URLShortnerDB.h"
 #include "Config.h"
-// Include DTOs used in Middleware/Context
+
 #include "Modals/SessionDTO.h"
 
 // Structure to hold current request context after middleware runs
@@ -54,7 +54,7 @@ private:
     void handleRedirect(const httplib::Request &req, httplib::Response &res);
     void handleGoogleCallback(const httplib::Request &req, httplib::Response &res);
     
-    // NEW API for Link Management Dashboard
+    // Link Management Dashboard
     void handleUserLinks(const httplib::Request &req, httplib::Response &res);
 
     // --- google sign in ---
