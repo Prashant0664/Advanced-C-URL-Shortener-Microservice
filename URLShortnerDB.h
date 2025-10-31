@@ -5,7 +5,9 @@
 #include <vector>
 #include <memory>
 #include <optional>
-
+#include <mutex>
+#include <queue>
+#include <condition_variable>
 // --- New MySQL X DevAPI Headers ---
 #include <mysqlx/xdevapi.h>
 
@@ -22,9 +24,16 @@
 
 class UrlShortenerDB {
 private:
+    std::queue<std::unique_ptr<mysqlx::Session>> connectionPool;
+    std::mutex poolMutex;
+    std::condition_variable poolCv;
+    int poolSize = 10; 
+    
+    // NEW Helper Methods
+    std::unique_ptr<mysqlx::Session> getConnection();
     // This is explicitly qualified as the MySQL database session class
-    std::unique_ptr<mysqlx::Session> session;  
-    std::optional<mysqlx::Schema> schema;
+    // std::unique_ptr<mysqlx::Session> session;  
+    // std::optional<mysqlx::Schema> schema;
     bool isConnected = false;
 
     // Helper method signature (using fixed ABI)
@@ -73,9 +82,15 @@ public:
 
     // global settings
     std::string getConfig(std::string key);
+    std::string getConfig(mysqlx::Session& currentSession, std::string key);
     bool setLinkFavorite(const int&userId, const std::string&code, const bool&isFav);
     bool deleteLink(const int&id, const std::string&code);
-
+    std::unique_ptr<mysqlx::RowResult> executeStatement(
+        mysqlx::Session& currentSession, // <-- Session parameter added
+        const std::string& sql, 
+        const std::vector<mysqlx::Value>& params
+    );
+    void returnConnection(std::unique_ptr<mysqlx::Session> session);
 
 
 

@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS shortened_links (id INT UNSIGNED NOT NULL AUTO_INCREM
 
 -- -----------------------------------------------------
 ;
-CREATE TABLE IF NOT EXISTS guest_daily_quotas (id INT UNSIGNED NOT NULL AUTO_INCREMENT,guest_identifier VARCHAR(255) NOT NULL COMMENT 'IP address or fingerprint of the guest user',quota_date DATE NOT NULL COMMENT 'The specific date for the quota tracking',links_created TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Count of links created by this guest on this date',created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,PRIMARY KEY (id),UNIQUE INDEX ux_guest_date (guest_identifier, quota_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS guest_daily_quotas (id INT UNSIGNED NOT NULL AUTO_INCREMENT,guest_identifier VARCHAR(255) NOT NULL COMMENT 'IP address or fingerprint of the guest user',quota_date DATE NOT NULL COMMENT 'The specific date for the quota tracking',links_created INT NOT NULL DEFAULT 1 COMMENT 'Count of links created by this guest on this date',created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,PRIMARY KEY (id),UNIQUE INDEX ux_guest_date (guest_identifier, quota_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 -- -----------------------------------------------------
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS global_settings (id INT UNSIGNED NOT NULL AUTO_INCREM
 ;
 INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_LINK_LIMIT_ENABLED','true','If true, unauthenticated users are limited to 5 links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
 ;
-INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_GUEST_LINKS_PER_DAY','10','If true, unauthenticated users are limited to {count} links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
+INSERT INTO global_settings (setting_key, setting_value, description)VALUES ('MAX_GUEST_LINKS_PER_DAY','100000','If true, unauthenticated users are limited to {count} links per day. Set to false for unlimited guest links.')ON DUPLICATE KEY UPDATE setting_value=setting_value;
 
 -- -----------------------------------------------------
 

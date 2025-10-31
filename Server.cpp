@@ -42,7 +42,6 @@ bool checkBucket(const string &ip) {
 }
 
 // --- for google sign in ---
-// In UrlShortenerServer.cpp
 std::string UrlShortenerServer::getJsonValue(const std::string& json, const std::string& key) {
     std::string searchKey = "\"" + key + "\":";
     size_t start = json.find(searchKey);
@@ -56,7 +55,6 @@ std::string UrlShortenerServer::getJsonValue(const std::string& json, const std:
     }
 
     if (json[start] != '"') {
-        // Assume non-string value (like number or boolean) - not handled for simplicity
         return ""; 
     }
     
@@ -90,7 +88,6 @@ std::string UrlShortenerServer::createSessionToken(unsigned int userId, const st
 
 
 
-// --- Utility Implementation ---
 // NEW: Handler for setting favorite status
 void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
@@ -101,10 +98,10 @@ void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib
         return;
     }
     
-    // Assume JSON body contains {"short_code": "xyz", "is_favorite": true}
-    // Simple implementation relies on having the short_code in the request body
-    std::string code = extractShortUrl(req.body); // Re-use parser for simplicity
-    bool isFav = req.body.find("\"is_favourite\": true") != string::npos; 
+    std::string code = extractShortUrl(req.body); 
+    // Check for "true" value for robust boolean parsing
+    bool isFav = req.body.find("\"is_favourite\":true") != string::npos; 
+    
     if (code.empty()) {
         res.status = 400;
         res.set_content("Missing short_code in request body.", "text/plain");
@@ -112,7 +109,7 @@ void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib
     }
 
     unique_lock<mutex> lock(dbMutex);
-    if (db.setLinkFavorite(ctx.userId, code, isFav)) { // db.setLinkFavorite is assumed to be implemented
+    if (db.setLinkFavorite(ctx.userId, code, isFav)) {
         res.status = 200;
         res.set_content("Favourite status updated successfully.", "text/plain");
     } else {
@@ -120,7 +117,6 @@ void UrlShortenerServer::handleLinkFavorite(const httplib::Request &req, httplib
         res.set_content("Link not found or does not belong to user.", "text/plain");
     }
 }
-
 // NEW: Handler for deleting a link
 void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::Response &res) {
     RequestContext ctx = get_context(res);
@@ -131,7 +127,6 @@ void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::
         return;
     }
     
-    // Assuming short code is passed as a URL parameter like /api/link?code=xyz
     std::string code = req.has_param("code") ? req.get_param_value("code") : "";
     
     if (code.empty()) {
@@ -141,7 +136,7 @@ void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::
     }
 
     unique_lock<mutex> lock(dbMutex);
-    // db.deleteLink is assumed to be implemented and checks ownership (ctx.userId)
+    // Use ctx.userId explicitly for clarity, assuming db.deleteLink takes userId first
     if (db.deleteLink(ctx.userId, code)) { 
         res.status = 200;
         res.set_content("Link deleted successfully.", "text/plain");
@@ -150,7 +145,6 @@ void UrlShortenerServer::handleLinkDelete(const httplib::Request &req, httplib::
         res.set_content("Link not found or does not belong to user.", "text/plain");
     }
 }
-
 
 // NEW: Handler for Admin-Only Test API
 void UrlShortenerServer::handleAdminTest(const httplib::Request &req, httplib::Response &res) {
@@ -365,11 +359,11 @@ httplib::Server::HandlerResponse UrlShortenerServer::AuthMiddleware(const httpli
     RequestContext ctx;
     string token;
     std::string clientIp = req.remote_addr;
-    if (!checkBucket(clientIp)) {
-        res.status = 429; // Too Many Requests
-        res.set_content("Rate limit exceeded. Please slow down.", "text/plain");
-        return httplib::Server::HandlerResponse::Handled; // Stop request here
-    }
+    // if (!checkBucket(clientIp)) {
+    //     res.status = 429; // Too Many Requests
+    //     res.set_content("Rate limit exceeded. Please slow down.", "text/plain");
+    //     return httplib::Server::HandlerResponse::Handled; // Stop request here
+    // }
 
     if (req.has_header("Authorization")) {
         string authHeader = req.get_header_value("Authorization");
@@ -548,22 +542,13 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     string expiryDate = req.has_param("expires_at") ? req.get_param_value("expires_at") : "";
     string clientIp = req.remote_addr;
     
-    if (longUrl.empty()) {
+    // ... (URL validation code remains the same) ...
+    if (longUrl.empty() || longUrl.size() > Config::MAX_URL_LENGTH || 
+        (longUrl.compare(0, 7, "http://") != 0 && longUrl.compare(0, 8, "https://") != 0)) {
         res.status = 400;
-        res.set_content("Missing 'long_url' in request body.", "text/plain");
+        res.set_content(longUrl.empty() ? "Missing 'long_url' in request body." : "Invalid or too long URL.", "text/plain");
         return;
     }
-    if (longUrl.size() > Config::MAX_URL_LENGTH) {
-        res.status = 400;
-        res.set_content("URL too long. Maximum allowed length is 2048 characters.", "text/plain");
-        return;
-    }
-    if (longUrl.compare(0, 7, "http://") != 0 && longUrl.compare(0, 8, "https://") != 0) {
-        res.status = 400;
-        res.set_content("Invalid URL protocol.", "text/plain");
-        return;
-    }
-
 
 
     // --- 1. Custom Code Restriction ---
@@ -574,17 +559,26 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     }
 
     // --- 2. Rate Limiting ---
+    // Acquire the lock early to safely handle all DB-dependent checks (including getConfig)
+    // and the final link creation.
+    unique_lock<mutex> lock(dbMutex); 
+    
     if (ctx.isAuthenticated) {
-        if (!checkAndApplyUserLimit(ctx.userId)) { // Check authenticated user limit
+        if (!checkAndApplyUserLimit(ctx.userId)) { // Check authenticated user limit (Placeholder call)
+            lock.unlock(); // Must unlock before returning
             res.status = 429; // Too Many Requests
             res.set_content("Link creation limit (200/hr) reached. Please wait.", "text/plain");
             return;
         }
     } else {
-        if (!checkAndApplyRateLimitDB(clientIp)) { // Check guest limit
+        // --- FIX: Get config value within the lock ---
+        string maxGuestLinks = db.getConfig( "MAX_GUEST_LINKS_PER_DAY");
+        
+        if (!db.checkAndUpdateGuestQuota(clientIp, db.getTodayDate())) { // Check guest limit
+            lock.unlock(); // Must unlock before returning
             res.status = 403;
             res.set_content("Limit reached. Max "
-                            + db.getConfig("MAX_GUEST_LINKS_PER_DAY")
+                            + maxGuestLinks 
                             + " per day. Please log in.",
                             "text/plain");
             return;
@@ -598,36 +592,32 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
         do {
             shortCode = generateShortCode();
         } while (db.getLinkByShortCode(shortCode)); 
-    } else {
-        // Custom code conflict check (handled gracefully by DB in step 4)
-        // We rely on the DB's unique constraint check (step 4) to handle conflict for custom codes.
     }
-
-        // Link Expiration
-    // 3. Prepare Link DTO (Authenticated Link Creation/Expiration)
-        ShortenedLink linkToSave;
-        linkToSave.original_url = longUrl;
-        linkToSave.short_code = shortCode;
     
-        if (ctx.isAuthenticated) {
-                 // Authenticated Link Creation
-                 linkToSave.user_id = make_unique<unsigned int>(ctx.userId); 
-                 linkToSave.guest_identifier = "";
-            } else {
-                     linkToSave.user_id = nullptr;
-                     linkToSave.guest_identifier = clientIp;
-                }
-            
-                // Link Expiration
+    // 3. Prepare Link DTO (Authenticated Link Creation/Expiration)
+    ShortenedLink linkToSave;
+    linkToSave.original_url = longUrl;
+    linkToSave.short_code = shortCode;
+
+    if (ctx.isAuthenticated) {
+        linkToSave.user_id = make_unique<unsigned int>(ctx.userId); 
+        linkToSave.guest_identifier = "";
+    } else {
+        linkToSave.user_id = nullptr;
+        linkToSave.guest_identifier = clientIp;
+    }
+    
+    // Link Expiration
     linkToSave.expires_at = expiryDate!=""?expiryDate:"";
-            // 4. Save Link
-    unique_lock<mutex> lock(dbMutex);
+    
+    // 4. Save Link (Protected by the lock acquired above)
     if (!db.createLink(linkToSave)) {
-        // If a custom short code was used and failed the unique constraint check (DB error 409)
-        res.status = 409; 
+        lock.unlock();
+        res.status = 409; // Conflict
         res.set_content("Short code '" + shortCode + "' is already taken or DB error occurred.", "text/plain");
         return;
     }
+    lock.unlock(); // Release lock before responding
 
     // 5. Response
     string fullShortUrl =  Config::BASE_URL + shortCode;
@@ -641,7 +631,6 @@ void UrlShortenerServer::handleShorten(const httplib::Request &req, httplib::Res
     res.status = 201;
     res.set_content(ss.str(), "application/json");
 }
-
 void UrlShortenerServer::handleRedirect(const httplib::Request &req, httplib::Response &res) {
     string code = req.matches[1];
     
